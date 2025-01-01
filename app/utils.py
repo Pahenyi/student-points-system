@@ -374,8 +374,8 @@ def show_rankings(limit=10):
 # Función de inicio de sesión
 def login():
     st.sidebar.markdown("""
-    <div style="background-color:#FFECB3; padding:20px; border-radius:10px; text-align:center;">
-        <h3 style="color:#FF5722;">🔒 Inicio de Sesión</h3>
+    <div style="background-color:#E3F2FD; padding:20px; border-radius:10px; text-align:center;">
+        <h3 style="color:#003366;">🔒 Inicio de Sesión</h3>
     </div>
     """, unsafe_allow_html=True)
 
