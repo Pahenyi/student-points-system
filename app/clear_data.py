@@ -16,7 +16,7 @@ def clear_table(table_name):
 
 def clear_all_tables():
     """Vaciar todas las tablas en el orden correcto para mantener las claves foráneas."""
-    tables = ['points_log', 'students_scores', 'reasons', 'students', 'mentors', 'courses']
+    tables = ['points_log', 'students_scores']#, 'reasons', 'students', 'mentors', 'courses']
     conn = connect_db()
     cursor = conn.cursor()
 

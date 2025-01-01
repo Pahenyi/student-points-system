@@ -51,3 +51,27 @@ CREATE TABLE students_scores (
     total_points INTEGER DEFAULT 0,
     FOREIGN KEY (student_id) REFERENCES students(student_id)
 );
+
+
+-- CAMBIOS EN LA BASE DE DATOS!!!!!!!
+-- Agregar la columna 'category' en la tabla 'reasons'
+ALTER TABLE reasons ADD COLUMN category INTEGER DEFAULT 1;
+
+-- Actualizar las categorías existentes
+-- 1: Suma de puntos por buen comportamiento
+-- 2: Resta de puntos por penalización
+-- 3: Resta de puntos por canjeo
+
+-- Asignar categorías a los motivos existentes
+UPDATE reasons SET category = 1 WHERE point_value > 0;
+UPDATE reasons SET category = 2 WHERE point_value < 0;
+
+-- Agregar nuevos motivos para la categoría de canjeo
+INSERT INTO reasons (reason_description, image_url, point_value, category)
+VALUES 
+('Más tiempo en el desafío', 'time_icon.png', -10, 3),
+('Elegir la música', 'music_icon.png', -20, 3);
+
+-- Verificar los cambios
+SELECT * FROM reasons;
+
