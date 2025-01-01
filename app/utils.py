@@ -12,9 +12,9 @@ def connect_db():
 # Función de Inicio
 def homepage():
     st.markdown("""
-    <div style="background-color:#FFECB3; padding:20px; border-radius:10px; text-align:center;">
-        <h1 style="color:#FF5722;">🏆 ¡Bienvenidos al Sistema de Puntos! 🏆</h1>
-        <p style="color:#37474F; font-size:18px;">Participa, aprende y gana premios increíbles.</p>
+    <div style="background-color:#E3F2FD; padding:20px; border-radius:10px; text-align:center;">
+        <h1 style="color:#0D47A1;">🏆 ¡Bienvenidos al Sistema de Puntos! 🏆</h1>
+        <p style="color:#0D47A1; font-size:18px;">Participa, aprende y gana premios increíbles.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -25,9 +25,9 @@ def assign_points_ui():
         return
 
     st.markdown("""
-    <div style="background-color:#FFF3E0; padding:20px; border-radius:10px; text-align:center; margin-bottom:20px;">
-        <h2 style="color:#FF5722;">Asigna puntos fácilmente</h2>
-        <p style="color:#37474F;">Selecciona a los estudiantes y asigna puntos por su desempeño.</p>
+    <div style="background-color:#E3F2FD; padding:20px; border-radius:10px; text-align:center; margin-bottom:20px;">
+        <h2 style="color:#0D47A1;">Asigna puntos fácilmente</h2>
+        <p style="color:#0D47A1;">Selecciona a los estudiantes y asigna puntos por su desempeño.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -191,10 +191,11 @@ def mentor_stats_ui():
 # Mostrar rankings
 def show_rankings(limit=10):
     st.markdown("""
-    <div style="background-color:#FFF3E0; padding:20px; border-radius:10px; text-align:center; margin-bottom:20px;">
-        <h2 style="color:#FF5722;">Consulta el ranking de los mejores estudiantes 🏅</h2>
+    <div style="background-color:#E3F2FD; padding:20px; border-radius:10px; text-align:center; margin-bottom:20px;">
+        <h2 style="color:#0D47A1;">Consulta el ranking de los mejores estudiantes 🏅</h2>
     </div>
     """, unsafe_allow_html=True)
+
 
     conn = connect_db()
     cursor = conn.cursor()
@@ -231,11 +232,11 @@ def show_rankings(limit=10):
                 }
                 .podium-item {
                     text-align: center;
-                    background-color: #FFF8E1;
+                    background-color: #B3CDE0;
                     border-radius: 8px;
                     padding: 10px;
                     width: 100px;
-                    color: #FF5722;
+                    color: #003366;
                 }
                 .podium-item.gold {
                     font-size: 20px;
@@ -248,15 +249,16 @@ def show_rankings(limit=10):
                     font-size: 16px;
                 }
                 .ranking-row {
-                    background-color: #FFF8E1;
+                    background-color: #B3CDE0;
                     border-radius: 8px;
                     padding: 10px;
                     margin-bottom: 5px;
                     font-size: 16px;
-                    color: #FF5722;
+                    color: #003366;
                 }
                 </style>
                 """, unsafe_allow_html=True)
+
 
                 # Mostrar podio
                 st.markdown("<div class='ranking-podium'>" +
@@ -295,11 +297,11 @@ def show_rankings(limit=10):
             }
             .general-podium-item {
                 text-align: center;
-                background-color: #FFE0B2;
+                background-color: #B3CDE0;
                 border-radius: 8px;
                 padding: 10px;
                 width: 100px;
-                color: #BF360C;
+                color: #003366;
             }
             .general-podium-item.gold {
                 font-size: 20px;
@@ -312,12 +314,12 @@ def show_rankings(limit=10):
                 font-size: 16px;
             }
             .general-ranking-row {
-                background-color: #FFE0B2;
+                background-color: #B3CDE0;
                 border-radius: 8px;
                 padding: 10px;
                 margin-bottom: 5px;
                 font-size: 16px;
-                color: #BF360C;
+                color: #003366;
             }
             </style>
             """, unsafe_allow_html=True)
@@ -351,12 +353,12 @@ def show_rankings(limit=10):
             st.markdown("""
             <style>
             .course-ranking-row {
-                background-color: #FFF3E0;
+                background-color: #B3CDE0;
                 border-radius: 8px;
                 padding: 10px;
                 margin-bottom: 5px;
                 font-size: 16px;
-                color: #37474F;
+                color: #003366;;
             }
             </style>
             """, unsafe_allow_html=True)
