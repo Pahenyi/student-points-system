@@ -395,3 +395,128 @@ def login():
                 st.session_state["user_role"] = "Mentor"
             elif user_role == "Mentor":
                 st.error("Contraseña incorrecta. Intenta nuevamente.")
+
+
+def admin_ui():
+    if st.session_state.get("user_role") != "Mentor":
+        st.error("Acceso denegado. Esta sección es solo para mentores.")
+        return
+
+    st.title("Administración de MustaPoint")
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    tabs = st.tabs(["Mentores", "Estudiantes", "Motivos"])
+
+    # Gestión de Mentores
+    with tabs[0]:
+        st.subheader("Gestión de Mentores")
+
+        # Mostrar mentores actuales
+        st.write("### Lista de Mentores")
+        cursor.execute("SELECT mentor_id, mentor_name FROM mentors;")
+        mentors = cursor.fetchall()
+        for mentor in mentors:
+            st.write(f"{mentor[1]} ({mentor[0]})")
+
+        # Agregar nuevo mentor
+        st.write("### Agregar Nuevo Mentor")
+        new_mentor_name = st.text_input("Nombre del Mentor")
+        if st.button("Agregar Mentor"):
+            if new_mentor_name:
+                cursor.execute("INSERT INTO mentors (mentor_name) VALUES (?);", (new_mentor_name,))
+                conn.commit()
+                st.success("Mentor agregado exitosamente.")
+            else:
+                st.error("Por favor, ingresa un nombre.")
+
+        # Eliminar mentor
+        st.write("### Eliminar Mentor")
+        mentor_to_delete = st.selectbox("Selecciona un Mentor para Eliminar", mentors, format_func=lambda x: x[1])
+        if st.button("Eliminar Mentor"):
+            cursor.execute("DELETE FROM mentors WHERE mentor_id = ?;", (mentor_to_delete[0],))
+            conn.commit()
+            st.success("Mentor eliminado exitosamente.")
+
+      # Gestión de Estudiantes
+    with tabs[1]:
+        st.subheader("Gestión de Estudiantes")
+
+        # Seleccionar curso
+        st.write("### Seleccionar Curso")
+        cursor.execute("SELECT course_id, course_name FROM courses;")
+        courses = cursor.fetchall()
+        course_selection = st.selectbox("Selecciona un Curso", courses, format_func=lambda x: x[1])
+
+        if course_selection:
+            # Mostrar estudiantes del curso seleccionado
+            st.write("### Lista de Estudiantes en el Curso")
+            cursor.execute("SELECT student_id, first_name, last_name FROM students WHERE current_course = ?;", (course_selection[0],))
+            students = cursor.fetchall()
+            for student in students:
+                st.write(f"{student[1]} {student[2]} ({student[0]})")
+
+            # Agregar nuevo estudiante
+            st.write("### Agregar Nuevo Estudiante")
+            new_student_first_name = st.text_input("Nombre del Estudiante")
+            new_student_last_name = st.text_input("Apellido del Estudiante")
+            new_student_rut = st.text_input("RUT del Estudiante")
+            new_gender = st.text_input("Género del Estudiante")
+            if st.button("Agregar Estudiante"):
+                if new_student_first_name and new_student_last_name:
+                    cursor.execute("INSERT INTO students (first_name, last_name, gender, rut, current_course) VALUES (?, ?, ?, ?, ?);", (new_student_first_name, new_student_last_name, new_gender, new_student_rut, course_selection[0]))
+                    conn.commit()
+                    st.success("Estudiante agregado exitosamente.")
+                else:
+                    st.error("Por favor, completa todos los campos.")
+
+            # Eliminar estudiante
+            st.write("### Eliminar Estudiantes")
+            students_to_delete = st.multiselect("Selecciona uno o más Estudiantes para Eliminar", students, format_func=lambda x: f"{x[1]} {x[2]}")
+            if st.button("Eliminar Estudiantes"):
+                for student in students_to_delete:
+                    cursor.execute("DELETE FROM students WHERE student_id = ?;", (student[0],))
+                conn.commit()
+                st.success("Estudiantes eliminados exitosamente.")
+
+ # Gestión de Motivos
+    with tabs[2]:
+        st.subheader("Gestión de Motivos")
+
+        # Seleccionar categoría
+        st.write("### Seleccionar Categoría de Motivo")
+        categories = [(1, "Premios"), (2, "Penalizaciones"), (3, "Canjeos")]
+        category_selection = st.selectbox("Selecciona una Categoría", categories, format_func=lambda x: x[1])
+
+        if category_selection:
+            # Mostrar motivos actuales de la categoría
+            st.write("### Lista de Motivos en la Categoría")
+            cursor.execute("SELECT reason_id, reason_description, point_value, course_id_exclusive FROM reasons WHERE category = ?;", (category_selection[0],))
+            reasons = cursor.fetchall()
+            for reason in reasons:
+                course_name = "Transversal" if reason[3] is None else cursor.execute("SELECT course_name FROM courses WHERE course_id = ?;", (reason[3],)).fetchone()[0]
+                st.write(f"{reason[1]} ({reason[2]} puntos, {course_name}, ID: {reason[0]})")
+
+            # Agregar nuevo motivo
+            st.write("### Agregar Nuevo Motivo")
+            new_reason_description = st.text_input("Descripción del Motivo")
+            new_reason_points = st.number_input("Valor del Motivo (Puntos)", step=1, format="%d")
+            new_reason_course = st.selectbox("¿Motivo Exclusivo para un Curso?", [(None, "Transversal")] + [(course[0], course[1]) for course in courses], format_func=lambda x: x[1])
+            if st.button("Agregar Motivo"):
+                if new_reason_description:
+                    cursor.execute("INSERT INTO reasons (reason_description, point_value, category, course_id_exclusive) VALUES (?, ?, ?, ?);", (new_reason_description, new_reason_points, category_selection[0], new_reason_course[0]))
+                    conn.commit()
+                    st.success("Motivo agregado exitosamente.")
+                else:
+                    st.error("Por favor, ingresa una descripción.")
+
+            # Eliminar motivo
+            st.write("### Eliminar Motivo")
+            reason_to_delete = st.selectbox("Selecciona un Motivo para Eliminar", reasons, format_func=lambda x: x[1])
+            if st.button("Eliminar Motivo"):
+                cursor.execute("DELETE FROM reasons WHERE reason_id = ?;", (reason_to_delete[0],))
+                conn.commit()
+                st.success("Motivo eliminado exitosamente.")
+
+    conn.close()

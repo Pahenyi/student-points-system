@@ -1,8 +1,4 @@
 import streamlit as st
-import sqlite3
-from streamlit_option_menu import option_menu
-from st_aggrid import AgGrid
-import pandas as pd
 from utils import *
 
 
@@ -13,7 +9,7 @@ def main():
     else:
         st.sidebar.title("Navegación")
         if st.session_state["user_role"] == "Mentor":
-            pages = ["Inicio", "Asignar Puntos", "Rankings", "Estadísticas"]
+            pages = ["Inicio", "Asignar Puntos", "Rankings", "Estadísticas", "Admin"]
         else:
             pages = ["Inicio", "Rankings"]
         page = st.sidebar.radio("Selecciona una página:", pages)
@@ -26,6 +22,8 @@ def main():
             show_rankings()
         elif page == "Estadísticas":
             mentor_stats_ui()
+        elif page == "Admin":
+            admin_ui()
 
         if st.sidebar.button("Cerrar Sesión"):
             st.session_state["user_role"] = None
