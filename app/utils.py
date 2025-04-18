@@ -481,11 +481,18 @@ def admin_ui():
             # Eliminar estudiante
             st.write("### Eliminar Estudiantes")
             students_to_delete = st.multiselect("Selecciona uno o más Estudiantes para Eliminar", students, format_func=lambda x: f"{x[1]} {x[2]}")
+
             if st.button("Eliminar Estudiantes"):
                 for student in students_to_delete:
+                    # Primero eliminar en points_log
+                    cursor.execute("DELETE FROM points_log WHERE student_id = %s;", (student[0],))
+                    # Luego eliminar en students_scores
+                    cursor.execute("DELETE FROM students_scores WHERE student_id = %s;", (student[0],))
+                    # Finalmente eliminar en students
                     cursor.execute("DELETE FROM students WHERE student_id = %s;", (student[0],))
                 conn.commit()
                 st.success("Estudiantes eliminados exitosamente.")
+
 
  # Gestión de Motivos
     with tabs[2]:
