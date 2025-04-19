@@ -63,7 +63,6 @@ def assign_points_ui():
         """, (course_selection[0],))
         students = cursor.fetchall()
 
-        # Mostrar lista de estudiantes con opción de seleccionar todos
         select_all = st.checkbox("Seleccionar Todos")
         selected_students = st.multiselect(
             "Estudiantes",
@@ -90,7 +89,8 @@ def assign_points_ui():
         categories = {
             1: "Premios",
             2: "Penalizaciones",
-            3: "Canjeos"
+            3: "Canjeos",
+            4: "Bonos"  # <- ACTIVAMOS BONOS
         }
 
         for category, title in categories.items():
@@ -99,23 +99,50 @@ def assign_points_ui():
                 if st.button(f"{reason[1]} ({reason[2]} puntos)", key=f"reason_{reason[0]}"):
                     st.session_state["selected_reason"] = reason
 
-
     # Paso 5: Confirmar y Enviar
     st.subheader("5. Confirmar y Enviar")
     if st.button("Asignar Puntos", key="assign_points_button"):
         if st.session_state.get("selected_reason") and mentor_selection and selected_students:
             for student in selected_students:
+                reason_id = st.session_state["selected_reason"][0]
+                point_value = st.session_state["selected_reason"][2]
+                category = st.session_state["selected_reason"][3]
+
+                # Insertar en points_log
                 cursor.execute("""
                     INSERT INTO points_log (mentor_id, student_id, reason_id, points)
                     VALUES (%s, %s, %s, %s);
-                """, (mentor_selection[0], student[0], st.session_state["selected_reason"][0], st.session_state["selected_reason"][2]))
+                """, (mentor_selection[0], student[0], reason_id, point_value))
 
+                # Actualizar el puntaje total del estudiante
                 cursor.execute("""
                     INSERT INTO students_scores (student_id, total_points)
                     VALUES (%s, %s)
                     ON CONFLICT (student_id) DO UPDATE 
                     SET total_points = students_scores.total_points + EXCLUDED.total_points;
-                """, (student[0], st.session_state["selected_reason"][2]))
+                """, (student[0], point_value))
+
+                # Si es un BONO (category 4), registrar en student_achievements (si no existe ya)
+                if category == 4:
+                    # Es un BONUS → Verificamos si ya existe antes de insertar
+                    cursor.execute("""
+                        SELECT 1 FROM student_achievements
+                        WHERE student_id = %s AND reason_id = %s;
+                    """, (student[0], reason_id))
+                    already_exists = cursor.fetchone()
+
+                    if not already_exists:
+                        cursor.execute("""
+                            INSERT INTO student_achievements (student_id, reason_id)
+                            VALUES (%s, %s);
+                        """, (student[0], reason_id))
+                else:
+                    # Es un PREMIO NORMAL → Insertamos siempre
+                    cursor.execute("""
+                        INSERT INTO student_achievements (student_id, reason_id)
+                        VALUES (%s, %s);
+                    """, (student[0], reason_id))
+
 
             conn.commit()
             st.success("¡Puntos asignados correctamente!")
@@ -123,6 +150,7 @@ def assign_points_ui():
             st.error("Por favor, completa todos los pasos antes de asignar puntos.")
 
     conn.close()
+
 
 
 
