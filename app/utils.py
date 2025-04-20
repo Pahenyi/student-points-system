@@ -245,7 +245,7 @@ def mentor_stats_ui():
 
             if course_logs:
                 st.write(f"Historial de asignaciones en {course[1]}:")
-                st.table(pd.DataFrame(course_logs, columns=["Fecha", "Mentor", "Estudiante", "Motivo", "Puntos"]))
+                st.dataframe(pd.DataFrame(course_logs, columns=["Fecha", "Mentor", "Estudiante", "Motivo", "Puntos"]))
             else:
                 st.write(f"No hay datos disponibles para el curso {course[1]}.")
 
@@ -269,6 +269,7 @@ def show_rankings(limit=10):
 
     tabs = st.tabs(["Ranking por Curso", "Ranking General", "Ranking por Total de Puntos por Curso"])
 
+    # Ranking por Curso
     with tabs[0]:
         st.subheader(f"Ranking por Curso (Top {limit})")
         cursor.execute("SELECT course_id, course_name FROM courses;")
@@ -329,30 +330,49 @@ def show_rankings(limit=10):
 
                 # Mostrar podio
                 st.markdown("<div class='ranking-podium'>" +
-                    (f"<div class='podium-item gold'>🥇<br>{rankings[0][0]}<br>{rankings[0][1]} pts</div>" if len(rankings) > 0 else "") +
-                    (f"<div class='podium-item silver'>🥈<br>{rankings[1][0]}<br>{rankings[1][1]} pts</div>" if len(rankings) > 1 else "") +
-                    (f"<div class='podium-item bronze'>🥉<br>{rankings[2][0]}<br>{rankings[2][1]} pts</div>" if len(rankings) > 2 else "") +
+                    (f"<div class='podium-item gold'>🥇<br>{rankings[0][0]}<br>{rankings[0][1]} MP🪙</div>" if len(rankings) > 0 else "") +
+                    (f"<div class='podium-item silver'>🥈<br>{rankings[1][0]}<br>{rankings[1][1]} MP🪙</div>" if len(rankings) > 1 else "") +
+                    (f"<div class='podium-item bronze'>🥉<br>{rankings[2][0]}<br>{rankings[2][1]} MP🪙</div>" if len(rankings) > 2 else "") +
                     "</div>", unsafe_allow_html=True)
 
                 # Mostrar resto del ranking
                 for i, (name, points) in enumerate(rankings[3:], start=4):
-                    st.markdown(f"<div class='ranking-row'>{i}. {name} - {points} puntos</div>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='ranking-row'>{i}. {name} - {points} MP🪙</div>", unsafe_allow_html=True)
             else:
                 st.write("No hay estudiantes en este curso.")
 
+    # Ranking General
     with tabs[1]:
-        st.subheader(f"Ranking General (Top {limit})")
-        cursor.execute(f"""
+        st.subheader(f"Ranking General (Top 50)")
+
+        # 1. Obtener estudiantes y sus puntajes
+        cursor.execute("""
             SELECT s.first_name || ' ' || s.last_name AS full_name, sc.total_points, c.course_name
             FROM students_scores sc
             JOIN students s ON sc.student_id = s.student_id
-            JOIN courses c ON s.current_course = c.course_id
-            ORDER BY sc.total_points DESC
-            LIMIT {limit};
+            JOIN courses c ON s.current_course = c.course_id;
         """)
-        rankings = cursor.fetchall()
+        students_data = cursor.fetchall()
 
-        if rankings:
+        if not students_data:
+            st.write("No hay estudiantes registrados.")
+        else:
+            # 2. Preparar DataFrame para cálculo de z-score
+            df_students = pd.DataFrame(students_data, columns=["full_name", "total_points", "course_name"])
+
+            # 3. Calcular media y desviación estándar
+            media = df_students["total_points"].mean()
+            std = df_students["total_points"].std()
+
+            if std == 0:  # Caso especial: todos tienen mismo puntaje
+                df_students["z_score"] = 0
+            else:
+                df_students["z_score"] = (df_students["total_points"] - media) / std
+
+            # 4. Ordenar y seleccionar Top 50
+            df_students = df_students.sort_values(by="z_score", ascending=False).head(50)
+
+            # 5. Mostrar
             st.markdown("""
             <style>
             .general-ranking-podium {
@@ -391,19 +411,20 @@ def show_rankings(limit=10):
             </style>
             """, unsafe_allow_html=True)
 
-            # Mostrar podio
+            # Podio
             st.markdown("<div class='general-ranking-podium'>" +
-                (f"<div class='general-podium-item gold'>🥇<br>{rankings[0][0]} ({rankings[0][2]})<br>{rankings[0][1]} pts</div>" if len(rankings) > 0 else "") +
-                (f"<div class='general-podium-item silver'>🥈<br>{rankings[1][0]} ({rankings[1][2]})<br>{rankings[1][1]} pts</div>" if len(rankings) > 1 else "") +
-                (f"<div class='general-podium-item bronze'>🥉<br>{rankings[2][0]} ({rankings[2][2]})<br>{rankings[2][1]} pts</div>" if len(rankings) > 2 else "") +
+                (f"<div class='general-podium-item gold'>🥇<br>{df_students.iloc[0]['full_name']}<br>Z: {df_students.iloc[0]['z_score']:.2f}<br>{df_students.iloc[0]['total_points']} MP🪙</div>" if len(df_students) > 0 else "") +
+                (f"<div class='general-podium-item silver'>🥈<br>{df_students.iloc[1]['full_name']}<br>Z: {df_students.iloc[1]['z_score']:.2f}<br>{df_students.iloc[1]['total_points']} MP🪙</div>" if len(df_students) > 1 else "") +
+                (f"<div class='general-podium-item bronze'>🥉<br>{df_students.iloc[2]['full_name']}<br>Z: {df_students.iloc[2]['z_score']:.2f}<br>{df_students.iloc[2]['total_points']} MP🪙</div>" if len(df_students) > 2 else "") +
                 "</div>", unsafe_allow_html=True)
 
-            # Mostrar resto del ranking
-            for i, (name, points, course) in enumerate(rankings[3:], start=4):
-                st.markdown(f"<div class='general-ranking-row'>{i}. {name} ({course}) - {points} puntos</div>", unsafe_allow_html=True)
-        else:
-            st.write("No hay estudiantes registrados.")
-
+            # El resto del ranking
+            for i in range(3, len(df_students)):
+                st.markdown(
+                    f"<div class='general-ranking-row'>{i+1}. {df_students.iloc[i]['full_name']} ({df_students.iloc[i]['course_name']}) - Z: {df_students.iloc[i]['z_score']:.2f} ({df_students.iloc[i]['total_points']} MP🪙)</div>",
+                    unsafe_allow_html=True
+                )
+    # ranking por total de puntos por curso
     with tabs[2]:
         st.subheader("Ranking por Total de Puntos por Curso")
         cursor.execute("""
@@ -432,7 +453,7 @@ def show_rankings(limit=10):
 
             st.write("Ranking de Cursos:")
             for i, (course_name, total_points) in enumerate(course_rankings, start=1):
-                st.markdown(f"<div class='course-ranking-row'>{i}. {course_name} - {total_points} puntos</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='course-ranking-row'>{i}. {course_name} - {total_points} MP🪙</div>", unsafe_allow_html=True)
         else:
             st.write("No hay datos disponibles.")
 
@@ -476,13 +497,30 @@ def admin_ui():
     with tabs[0]:
         st.subheader("Gestión de Mentores")
 
+        """
+        # Mostrar puntos_log actuales
+        st.write("### Log de Asignaciones de Puntos")
+        cursor.execute(
+            SELECT p.log_id, s.first_name || ' ' || s.last_name AS estudiante, r.reason_description, p.points, p.date_time
+            FROM points_log p
+            JOIN students s ON p.student_id = s.student_id
+            JOIN reasons r ON p.reason_id = r.reason_id
+            ORDER BY p.date_time DESC;
+        )
+        logs = cursor.fetchall()
+        df_logs = pd.DataFrame(logs, columns=["ID Log", "Estudiante", "Motivo", "Puntos", "Fecha"])
+        st.dataframe(df_logs)
+
+        st.divider()
+        """
+
         # Mostrar mentores actuales
         st.write("### Lista de Mentores")
         cursor.execute("SELECT mentor_id, mentor_name FROM mentors;")
         mentors = cursor.fetchall()
-        for mentor in mentors:
-            st.write(f"{mentor[1]} ({mentor[0]})")
 
+        st.dataframe(pd.DataFrame(mentors, columns=["ID Mentor", "Nombre del Mentor"]))
+        
         # Agregar nuevo mentor
         st.write("### Agregar Nuevo Mentor")
         new_mentor_name = st.text_input("Nombre del Mentor")
@@ -517,9 +555,9 @@ def admin_ui():
             st.write("### Lista de Estudiantes en el Curso")
             cursor.execute("SELECT student_id, first_name, last_name FROM students WHERE current_course = %s;", (course_selection[0],))
             students = cursor.fetchall()
-            for student in students:
-                st.write(f"{student[1]} {student[2]} ({student[0]})")
 
+            st.dataframe(pd.DataFrame(students, columns=["ID Estudiante", "Nombre", "Apellido"]))
+            
             # Agregar nuevo estudiante
             st.write("### Agregar Nuevo Estudiante")
             new_student_first_name = st.text_input("Nombre del Estudiante")
@@ -563,14 +601,7 @@ def admin_ui():
             st.write("### Lista de Motivos en la Categoría")
             cursor.execute("SELECT reason_id, reason_description, point_value, course_id_exclusive FROM reasons WHERE category = %s;", (category_selection[0],))
             reasons = cursor.fetchall()
-            for reason in reasons:
-                if reason[3] is None:
-                    course_name = "Transversal"
-                else:
-                    cursor.execute("SELECT course_name FROM courses WHERE course_id = %s;", (reason[3],))
-                    course_name = cursor.fetchone()[0]
-                st.write(f"{reason[1]} ({reason[2]} puntos, {course_name}, ID: {reason[0]})")
-
+            st.dataframe(pd.DataFrame(reasons, columns=["ID Motivo", "Descripción", "Valor (Puntos)", "Curso Exclusivo"]))
             # Agregar nuevo motivo
             st.write("### Agregar Nuevo Motivo")
             new_reason_description = st.text_input("Descripción del Motivo")
