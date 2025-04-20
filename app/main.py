@@ -1,6 +1,15 @@
 import streamlit as st
 from utils import *
 
+def footer():
+    st.markdown("""
+    <hr style="margin-top:50px;margin-bottom:10px;">
+    <div style="text-align: center; color: #0D47A1; font-size: 14px;">
+        Desarrollado con ❤️ por <b>Seba</b> para la Sede Recoleta de Fundación Mustakis 2025
+    </div>
+    """, unsafe_allow_html=True)
+
+
 
 # Navegación Principal
 def main():
@@ -46,3 +55,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    footer()
