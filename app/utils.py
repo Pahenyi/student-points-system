@@ -4,6 +4,7 @@ from streamlit_option_menu import option_menu
 from st_aggrid import AgGrid
 import pandas as pd
 from utils import *
+from automation import *
 
 # Conectar a la base de datos
 def connect_db():
@@ -90,7 +91,7 @@ def assign_points_ui():
             1: "Premios",
             2: "Penalizaciones",
             3: "Canjeos",
-            4: "Bonos"  # <- ACTIVAMOS BONOS
+            #4: "Bonos"  # <- ACTIVAMOS BONOS
         }
 
         for category, title in categories.items():
@@ -98,15 +99,35 @@ def assign_points_ui():
             for reason in [r for r in reasons if r[3] == category]:
                 if st.button(f"{reason[1]} ({reason[2]} puntos)", key=f"reason_{reason[0]}"):
                     st.session_state["selected_reason"] = reason
+        
+        # Si se seleccionó el Desafío Final (id=11), pedir puntaje manual
+        if st.session_state.get("selected_reason") and st.session_state["selected_reason"][0] == 11:
+            manual_point_value = st.number_input(
+                "Ingresa el puntaje obtenido en el Desafío Final (0 a 10):",
+                min_value=0, max_value=10, step=1
+            )
 
     # Paso 5: Confirmar y Enviar
     st.subheader("5. Confirmar y Enviar")
-    if st.button("Asignar Puntos", key="assign_points_button"):
+    if st.button("Enviar Asignación", key="assign_points_button"):
         if st.session_state.get("selected_reason") and mentor_selection and selected_students:
             for student in selected_students:
                 reason_id = st.session_state["selected_reason"][0]
-                point_value = st.session_state["selected_reason"][2]
                 category = st.session_state["selected_reason"][3]
+
+                # Determinar el valor correcto de los puntos
+                if reason_id == 11 and manual_point_value is not None:
+                    point_value = manual_point_value
+                else:
+                    point_value = st.session_state["selected_reason"][2]
+
+                # Validar si es un canjeo (category 3) y si tiene suficientes puntos
+                if category == 3:  # Canjeo
+                    cursor.execute("SELECT total_points FROM students_scores WHERE student_id = %s;", (student[0],))
+                    current_points = cursor.fetchone()
+                    if not current_points or current_points[0] < point_value:
+                        st.error(f"El estudiante {student[1]} {student[2]} no tiene suficientes puntos para canjear.")
+                        continue  # No aplicar el canjeo si no tiene puntos suficientes
 
                 # Insertar en points_log
                 cursor.execute("""
@@ -115,16 +136,25 @@ def assign_points_ui():
                 """, (mentor_selection[0], student[0], reason_id, point_value))
 
                 # Actualizar el puntaje total del estudiante
-                cursor.execute("""
-                    INSERT INTO students_scores (student_id, total_points)
-                    VALUES (%s, %s)
-                    ON CONFLICT (student_id) DO UPDATE 
-                    SET total_points = students_scores.total_points + EXCLUDED.total_points;
-                """, (student[0], point_value))
+                if category == 3:
+                    # Canjeo: RESTAR puntos
+                    cursor.execute("""
+                        UPDATE students_scores
+                        SET total_points = total_points - %s
+                        WHERE student_id = %s;
+                    """, (point_value, student[0]))
+                else:
+                    # Premio o penalización: SUMAR puntos
+                    cursor.execute("""
+                        INSERT INTO students_scores (student_id, total_points)
+                        VALUES (%s, %s)
+                        ON CONFLICT (student_id) DO UPDATE 
+                        SET total_points = students_scores.total_points + EXCLUDED.total_points;
+                    """, (student[0], point_value))
 
-                # Si es un BONO (category 4), registrar en student_achievements (si no existe ya)
+                # Insertar en student_achievements
                 if category == 4:
-                    # Es un BONUS → Verificamos si ya existe antes de insertar
+                    # Es un BONUS → Verificar si ya existe antes de insertar
                     cursor.execute("""
                         SELECT 1 FROM student_achievements
                         WHERE student_id = %s AND reason_id = %s;
@@ -137,7 +167,7 @@ def assign_points_ui():
                             VALUES (%s, %s);
                         """, (student[0], reason_id))
                 else:
-                    # Es un PREMIO NORMAL → Insertamos siempre
+                    # Es un PREMIO NORMAL → Insertar siempre
                     cursor.execute("""
                         INSERT INTO student_achievements (student_id, reason_id)
                         VALUES (%s, %s);
@@ -419,18 +449,14 @@ def login():
         st.session_state["user_role"] = None
 
     with st.sidebar.form("login_form"):
-        user_role = st.radio("Selecciona tu rol:", ["Estudiante", "Mentor"])
-        if user_role == "Mentor":
+        user_role = st.session_state["user_role"]
+        if user_role == None:
             password = st.text_input("Contraseña (solo para Mentores)", type="password")
         submit = st.form_submit_button("Iniciar Sesión")
-
+        print("pass: ", password)
         if submit:
-            if user_role == "Estudiante":
-                st.session_state["user_role"] = "Estudiante"
-            elif user_role == "Mentor" and password == "mentor123":
+            if user_role == None and password == st.secrets["login"]["password"]:
                 st.session_state["user_role"] = "Mentor"
-            elif user_role == "Mentor":
-                st.error("Contraseña incorrecta. Intenta nuevamente.")
 
 
 def admin_ui():
@@ -566,3 +592,76 @@ def admin_ui():
                 st.success("Motivo eliminado exitosamente.")
 
     conn.close()
+
+
+
+def assign_points_auto_ui():
+    if st.session_state.get("user_role") != "Mentor":
+        st.error("Acceso denegado. Esta sección es solo para mentores.")
+        return
+
+    st.title("Asignación Automática de Puntos ✨")
+
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # Seleccionar mentor
+    cursor.execute("SELECT mentor_id, mentor_name FROM mentors;")
+    mentors = cursor.fetchall()
+    mentor_selection = st.selectbox("Selecciona el Mentor Asignador", mentors, format_func=lambda x: x[1])
+
+    # Seleccionar curso
+    cursos = [
+        ("ROB001", "ROB001"),
+        ("VG001", "VG001"),
+        ("ClubNivelacion", "Club Nivelación"),
+        ("Rescue", "Rescue")
+    ]
+    curso_selection = st.selectbox("Selecciona el Curso", cursos, format_func=lambda x: x[1])
+
+    # Seleccionar acciones
+    acciones = st.multiselect(
+        "Acciones a realizar",
+        ["Asignar Asistencia según Sheet", "Asignar Puntaje de Desafío según Sheet"]
+    )
+
+    # Indicar sesión
+    sesion_input = st.text_input("Indica la Sesión a Procesar (ej: Sesión 2)")
+
+    # Definir contenedores de DataFrames
+    df_asistencia = None
+    df_puntajes = None
+
+    if mentor_selection and curso_selection and acciones and sesion_input:
+        # Obtener data
+        if curso_selection[0].startswith("ROB"):
+            df_asistencia, df_puntajes = getInfoRob(sesion_input)
+        elif curso_selection[0].startswith("VG"):
+            df_asistencia, df_puntajes = getInfoVg(sesion_input)
+        else:
+            st.error("Curso no soportado aún.")
+            return
+
+        # Mostrar DataFrames antes de asignar
+        if "Asignar Asistencia según Sheet" in acciones:
+            st.subheader("📋 Asistencia detectada:")
+            st.dataframe(df_asistencia)
+
+        if "Asignar Puntaje de Desafío según Sheet" in acciones:
+            st.subheader("📋 Puntajes detectados:")
+            st.dataframe(df_puntajes)
+
+        if st.button("✅ Confirmar y Ejecutar Asignación"):
+            if "Asignar Asistencia según Sheet" in acciones:
+                st.error("Aun no implementado.")
+                #asignar_asistencia(df_asistencia, mentor_selection[0], curso_selection[0], sesion_input)
+
+            if "Asignar Puntaje de Desafío según Sheet" in acciones:
+                st.error("Aun no implementado.")
+                #asignar_puntajes(df_puntajes, mentor_selection[0], curso_selection[0], sesion_input)
+
+            conn.commit()
+            st.success("¡Asignación automática completada! 🎉")
+
+    conn.close()
+
