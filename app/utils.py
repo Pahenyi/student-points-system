@@ -626,7 +626,7 @@ def assign_points_auto_ui():
     )
 
     # Indicar sesión
-    sesion_input = st.text_input("Indica la Sesión a Procesar (ej: Sesión 2)")
+    sesion_input = st.number_input("Indica el número de la sesión: (Ej: 1, 2, 3...)", min_value=1, max_value=10, step=1)
 
     # Definir contenedores de DataFrames
     df_asistencia = None
@@ -634,22 +634,31 @@ def assign_points_auto_ui():
 
     if mentor_selection and curso_selection and acciones and sesion_input:
         # Obtener data
-        if curso_selection[0].startswith("ROB"):
+        if curso_selection[0].startswith("ROB") and sesion_input <= 8:
             df_asistencia, df_puntajes = getInfoRob(sesion_input)
-        elif curso_selection[0].startswith("VG"):
+        elif curso_selection[0].startswith("VG") and sesion_input <= 8:
             df_asistencia, df_puntajes = getInfoVg(sesion_input)
+        elif (curso_selection[0].startswith("Club") or curso_selection[0].startswith("Rescue")) and sesion_input <= 10:
+            df_asistencia = getInfoClubes(sesion_input)
         else:
-            st.error("Curso no soportado aún.")
+            st.error("Error: La sesión seleccionada no es válida para el curso seleccionado.")
+            st.warning("Recuerda que la sesión máxima para ROB y VG es 8, y para Clubes y Rescue es 10.")
             return
 
         # Mostrar DataFrames antes de asignar
         if "Asignar Asistencia según Sheet" in acciones:
             st.subheader("📋 Asistencia detectada:")
-            st.dataframe(df_asistencia)
+            if df_asistencia is None:
+                st.error("No se encontraron datos de asistencia para la sesión seleccionada.")
+            else:   
+                st.dataframe(df_asistencia)
 
         if "Asignar Puntaje de Desafío según Sheet" in acciones:
             st.subheader("📋 Puntajes detectados:")
-            st.dataframe(df_puntajes)
+            if df_puntajes is None:
+                st.error("No se encontraron puntajes para la sesión seleccionada.")
+            else:   
+                st.dataframe(df_puntajes)
 
         if st.button("✅ Confirmar y Ejecutar Asignación"):
             if "Asignar Asistencia según Sheet" in acciones:

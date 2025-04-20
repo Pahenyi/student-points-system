@@ -68,7 +68,7 @@ def getColumnsOfSesions(df):
 def getPuntajesPorSesion(df, sesionNum):
 
     dff, sesiones = getColumnsOfSesions(df)
-    print(sesiones)
+    #print(sesiones)
 
     s = sesiones[f"Sesión {sesionNum}"]
 
@@ -118,6 +118,13 @@ def getInfoVg(sesion):
     df_asistencia_sx = getAsistencia(df_asistencia, sesion)
 
     return df_asistencia_sx, df_puntajes_sx
+
+def getInfoClubes(sesion):
+    # Obtener la información de la hoja de cálculo
+    df_asistencia = leer_sheet_publico(sheet_id_clubes, "Asistencia")
+
+    df_asistencia_sx = getAsistencia(df_asistencia, sesion)
+    return df_asistencia_sx
 
 
 
