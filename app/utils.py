@@ -6,6 +6,8 @@ import pandas as pd
 from utils import *
 from automation import *
 import math
+import matplotlib.pyplot as plt
+import numpy as np
 
 # Conectar a la base de datos
 def connect_db():
@@ -17,14 +19,191 @@ def connect_db():
         port=st.secrets["database"]["port"]
     )
 
-# Función de Inicio
+
+#homepage
 def homepage():
     st.markdown("""
-    <div style="background-color:#E3F2FD; padding:20px; border-radius:10px; text-align:center;">
-        <h1 style="color:#0D47A1;">🏆 ¡Bienvenidos al Sistema de Puntos! 🏆</h1>
-        <p style="color:#0D47A1; font-size:18px;">Participa, aprende y gana premios increíbles.</p>
+    <style>
+        .section-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0D47A1;
+            margin-top: 30px;
+        }
+        .highlight-box {
+            background-color: #E3F2FD;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: #0D47A1;
+        }
+        .warning-box {
+            background-color: #FFCDD2;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: #B71C1C;
+        }
+        .reward-box {
+            background-color: #FFF9C4;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            color: #0D47A1;
+        }
+    </style>
+
+    <div class="highlight-box" style="text-align:center;">
+        <h1>🏆 ¡Bienvenidos a MustaPoint! 🏆</h1>
+        <p style="font-size:18px;">Participa, aprende y gana premios increíbles acumulando MP🪙.</p>
+    </div>
+
+    <div class="highlight-box">
+        <div class="section-title">¿Qué es MustaPoint?</div>
+        <p>MustaPoint es nuestro sistema de puntos donde cada buena acción te recompensa con MP🪙. ¡Acumula MP🪙 para escalar posiciones en el ranking y canjear premios!</p>
+    </div>
+
+    <div class="highlight-box">
+        <div class="section-title">💪 ¿Cómo ganas MP🪙?</div>
+        <ul>
+            <li><b>Participación y Comportamiento:</b>
+                <ul>
+                    <li>✅ Llegar antes de las 10:00 hrs – 3 MP🪙.</li>
+                    <li>✅ Asistir o justificar ausencia – 1 MP🪙.</li>
+                    <li>✅ Participación activa en clase – 1 MP🪙.</li>
+                    <li>✅ Trabajo en equipo – 1 MP🪙.</li>
+                </ul>
+            </li>
+            <li><b>Kahoot:</b>
+                <ul>
+                    <li>🥇 1º lugar – 3 MP🪙.</li>
+                    <li>🥈 2º lugar – 2 MP🪙.</li>
+                    <li>🥉 3º lugar – 1 MP🪙.</li>
+                </ul>
+            </li>
+            <li><b>Desempeño Académico:</b>
+                <ul>
+                    <li>🏆 Desafío Final – Puntaje [0-10] (1 MP🪙 por cada 10% logrado).</li>
+                    <li>📚 Tarea semanal perfecta – 3 MP🪙.</li>
+                    <li>📖 Tarea parcial – 1 MP🪙.</li>
+                    <li>📈 Superar tu puntaje de la sesión pasada – 3 MP🪙.</li>
+                </ul>
+            </li>
+            <li><b>Actitudes y Valores:</b>
+                <ul>
+                    <li>🧹 Mantener limpio el espacio – 1 MP🪙.</li>
+                </ul>
+            </li>
+            <li><b>Atención Plena:</b>
+                <ul>
+                    <li>🧠 Compartir tu estado de ánimo – 3 MP🪙.</li>
+                    <li>🌬️ Participar en actividad de respiración consciente – 2 MP🪙.</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+     <div class="reward-box">
+        <div class="section-title">✨ ¡Bonos Especiales!</div>
+        <ul>
+            <li>⏰ <b>Racha de puntualidad:</b>
+                <ul>
+                    <li>x3 sesiones: 3 MP🪙</li>
+                    <li>x5 sesiones: 5 MP🪙</li>
+                    <li>Todo el taller: 20 MP🪙</li>
+                </ul>
+            </li>
+            <li>🏫 <b>Racha de asistencia:</b>
+                <ul>
+                    <li>x3 sesiones: 3 MP🪙</li>
+                    <li>x5 sesiones: 5 MP🪙</li>
+                    <li>Completa: 20 MP🪙</li>
+                </ul>
+            </li>
+            <li>🎯 <b>Puntaje perfecto:</b>
+                <ul>
+                    <li>x3: 10 MP🪙</li>
+                    <li>x5: 20 MP🪙</li>
+                    <li>Todo perfecto: 50 MP🪙</li>
+                </ul>
+            </li>
+            <li>📈 <b>Racha de mejora:</b> (Sacar puntaje igual o mejor que la sesión anterior)
+                <ul>
+                    <li>x3: 3 MP🪙</li>
+                    <li>x5: 5 MP🪙</li>
+                    <li>Completa: 20 MP🪙</li>
+                </ul>
+            </li>
+            <li>📝 <b>Racha de tareas entregadas:</b>
+                <ul>
+                    <li>x3: 10 MP🪙</li>
+                    <li>x5: 20 MP🪙</li>
+                    <li>Completa: 30 MP🪙</li>
+                </ul>
+            </li>
+            <li>🧘‍♂️ <b>Racha de atención plena:</b> (participación en mindfulness)
+                <ul>
+                    <li>x3: 5 MP🪙</li>
+                    <li>x5: 10 MP🪙</li>
+                    <li>Completa: 50 MP🪙</li>
+                </ul>
+            </li>
+        </ul>
+        <p>¡Los bonos aceleran tu progreso hacia grandes premios! 🎉</p>
+    </div>
+
+    <div class="warning-box">
+        <div class="section-title">🚨 Penalizaciones (¡casos muy extremos!)</div>
+        <p>En MustaPoint, creemos en reforzar lo positivo. Estas penalizaciones solo se aplican si ocurre una situación muy grave y debe ser aprobado por TODOS los Mentores, ¡así que no te preocupes! 😄</p>
+        <ul>
+            <li>⚠️ Desobedecer o ignorar acuerdos grupales</li>
+            <li>⚠️ Uso inapropiado de instrumentos o materiales</li>
+            <li>⚠️ Reiteraciones:
+                <ul>
+                    <li>Interrumpir clases o mentores</li>
+                    <li>Desorden persistente en el puesto </li>
+                </ul>
+            </li>
+            <li>⚠️ Mala conducta:
+                <ul>
+                    <li>Peligrosa</li>
+                    <li>Reprochable</li>
+                </ul>
+            </li>
+        </ul>
+        <p>La cantidad de descuento de MP🪙 queda a criterio del equipo :)</p>
+        <p>¡Siempre apostamos por la buena convivencia! 🤝</p>
+    </div>
+
+   <div class="highlight-box">
+        <div class="section-title">🎁 ¿En qué puedes canjear tus MP🪙?</div>
+        <ul>
+            <li>🥤 Juguito extra: 20 MP🪙</li>
+            <li>🍪 Galleta extra: 20 MP🪙</li>
+            <li>🍬 Un frugelé: 5 MP🪙</li>
+            <li>🕔 5 minutos extra de recreo: 50 MP🪙</li>
+            <li>💺 Silla VIP: 50 MP🪙</li>
+            <li>🚶 Saltarse la fila en el break: 50 MP🪙</li>
+            <li>🎵 Elegir música ambiente (1 canción): 30 MP🪙</li>
+            <li>🏓 Ping pong en el break: 100 MP🪙</li>
+            <li>⚽ Taka Taka en el break: 100 MP🪙</li>
+            <li>🛋️ Break VIP (sillones de la Funda): 500 MP🪙</li>
+            <li>🤖 Un Robot Iroh: 1000 MP🪙</li>
+            <li>👑 ¡Ascenso a Mentor!: 10,000 MP🪙</li>
+            <li>🔜 Muchos más... (¡Muy pronto! 😉)</li>
+        </ul>
+        <p>¡Canjea tus MustaPoints con un Mentor por premios increíbles y vive una experiencia única! 🎉</p>
+    </div>
+
+     <div class="highlight-box">
+        <div class="section-title">🚀 ¡Sube en el Ranking y Consigue un Premio Único!</div>
+        <p>Compites en el ranking de tu curso y en el ranking general. 🏅</p>
+        <p><strong>El o la estudiante con más MP🪙 de cada curso ganará un premio único y especial 🎁🎖️.</strong></p>
+        <p>¡No te quedes atrás! Participa en todas las actividades, da lo mejor de ti, acumula MP🪙 y alcanza lo más alto del ranking MustaPoint. 🌟<strong> ¡Tú puedes ser nuestro gran campeón o campeona! 🏆</strong> </p>
     </div>
     """, unsafe_allow_html=True)
+
+
 
 # Asignar puntos
 def assign_points_ui():
@@ -993,3 +1172,56 @@ def eliminar_logs_por_fecha(start_date, end_date):
 
     conn.commit()
     conn.close()
+
+
+def nnj_statistics_ui():
+    st.title("👷 EN CONSTRUCCIÓN: \n📊 Estadísticas de NNJs")
+
+    tabs = st.tabs(["Perfil de Estudiante", "Resumen General por Curso"])
+
+    # --- Perfil de Estudiante
+    with tabs[0]:
+        st.header("🔎 Perfil Individual")
+
+        # Inputs para seleccionar
+        curso = st.selectbox("Selecciona el curso:", ["ROB001", "VG001", "Club Nivelación", "Rescue"])
+        estudiante = st.selectbox("Selecciona el estudiante:", ["Estudiante 1", "Estudiante 2", "Estudiante 3"])
+
+        st.subheader("Radar de Caracterización")
+        # Valores de ejemplo
+        labels = np.array(["Asistencia", "Promedio Puntajes", "Logros", "Participaciones"])
+        valores = np.array([0.8, 0.7, 0.9, 0.6])
+
+        # Radar chart
+        fig, ax = plt.subplots(figsize=(5,5), subplot_kw=dict(polar=True))
+        angles = np.linspace(0, 2*np.pi, len(labels), endpoint=False).tolist()
+        valores = np.concatenate((valores, [valores[0]]))  # Cerrar el gráfico
+        angles += angles[:1]
+
+        ax.fill(angles, valores, color='skyblue', alpha=0.4)
+        ax.plot(angles, valores, color='blue', linewidth=2)
+        ax.set_yticklabels([])
+        ax.set_xticks(angles[:-1])
+        ax.set_xticklabels(labels)
+        st.pyplot(fig)
+
+    # --- Resumen General
+    with tabs[1]:
+        st.header("📚 Resumen por Curso")
+
+        curso_resumen = st.selectbox("Selecciona el curso para ver el resumen:", ["ROB001", "VG001", "Club Nivelación", "Rescue"], key="resumen")
+
+        # Asistencia por sesión (datos de ejemplo)
+        sesiones = [f"Sesión {i}" for i in range(1, 9)]
+        asistencia = [25, 23, 22, 24, 21, 20, 23, 22]
+
+        st.subheader("📅 Asistencia por Sesión")
+        df_asistencia = pd.DataFrame({"Sesión": sesiones, "Asistencias": asistencia})
+        st.bar_chart(df_asistencia.set_index("Sesión"))
+
+        # Puntaje promedio por sesión (solo para ROB y VG)
+        if curso_resumen in ["ROB001", "VG001"]:
+            st.subheader("🎯 Puntaje Promedio por Sesión")
+            puntajes_prom = [7.5, 8.0, 7.0, 8.5, 8.0, 7.8, 7.2, 8.3]
+            df_puntajes = pd.DataFrame({"Sesión": sesiones, "Promedio Puntaje": puntajes_prom})
+            st.bar_chart(df_puntajes.set_index("Sesión"))
