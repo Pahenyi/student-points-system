@@ -96,6 +96,19 @@ def getAsistencia(df, sesionNum):
     # Mostrar el DataFrame final
     return asistencia
 
+def getAsistenciaClub(df, sesionNum):
+    asistencia = pd.DataFrame()
+
+    asistencia["Nombre"] = df["Nombre"]
+    asistencia["Apellido"] = df["Apellido"]
+    asistencia["Asistio"] =  df[f"S{sesionNum}"]
+
+    # Asignar 1 si es "Rescue line", 0 si no
+    asistencia["esRescue"] = (df["Línea"] == "Rescue line").astype(int)
+
+    # Mostrar el DataFrame final
+    return asistencia
+
 
 
 def getInfoRob(sesion):
@@ -123,8 +136,8 @@ def getInfoClubes(sesion):
     # Obtener la información de la hoja de cálculo
     df_asistencia = leer_sheet_publico(sheet_id_clubes, "Asistencia")
 
-    df_asistencia_sx = getAsistencia(df_asistencia, sesion)
-    return df_asistencia_sx
+    return getAsistenciaClub(df_asistencia, sesion)
 
+#print(getInfoClubes(1))
 
 

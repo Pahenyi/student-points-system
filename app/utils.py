@@ -5,6 +5,7 @@ from st_aggrid import AgGrid
 import pandas as pd
 from utils import *
 from automation import *
+import math
 
 # Conectar a la base de datos
 def connect_db():
@@ -453,7 +454,7 @@ def login():
         if user_role == None:
             password = st.text_input("Contraseña (solo para Mentores)", type="password")
         submit = st.form_submit_button("Iniciar Sesión")
-        print("pass: ", password)
+        #print("pass: ", password)
         if submit:
             if user_role == None and password == st.secrets["login"]["password"]:
                 st.session_state["user_role"] = "Mentor"
@@ -469,7 +470,7 @@ def admin_ui():
     conn = connect_db()
     cursor = conn.cursor()
 
-    tabs = st.tabs(["Mentores", "Estudiantes", "Motivos"])
+    tabs = st.tabs(["Mentores", "Estudiantes", "Motivos", "Gestión de Logs"])
 
     # Gestión de Mentores
     with tabs[0]:
@@ -548,7 +549,7 @@ def admin_ui():
                 st.success("Estudiantes eliminados exitosamente.")
 
 
- # Gestión de Motivos
+    # Gestión de Motivos
     with tabs[2]:
         st.subheader("Gestión de Motivos")
 
@@ -591,6 +592,45 @@ def admin_ui():
                 conn.commit()
                 st.success("Motivo eliminado exitosamente.")
 
+    # Gestión de Logs 
+    with tabs[3]:
+        st.subheader("🗑️ Gestión de Logs de Puntos y Logros")
+
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        # Mostrar puntos_log actuales
+        st.write("### Log de Asignaciones de Puntos")
+        cursor.execute("""
+            SELECT p.log_id, s.first_name || ' ' || s.last_name AS estudiante, r.reason_description, p.points, p.date_time
+            FROM points_log p
+            JOIN students s ON p.student_id = s.student_id
+            JOIN reasons r ON p.reason_id = r.reason_id
+            ORDER BY p.date_time DESC;
+        """)
+        logs = cursor.fetchall()
+        df_logs = pd.DataFrame(logs, columns=["ID Log", "Estudiante", "Motivo", "Puntos", "Fecha"])
+        st.dataframe(df_logs)
+
+        st.divider()
+
+        st.subheader("🔎 Opciones de Eliminación")
+
+        delete_option = st.radio("¿Qué deseas hacer?", ["Eliminar por ID individual", "Eliminar por Rango de Fechas"])
+
+        if delete_option == "Eliminar por ID individual":
+            log_id_to_delete = st.number_input("Ingresa el ID del Log a Eliminar:", min_value=1, step=1)
+            if st.button("❌ Eliminar Log Individual"):
+                eliminar_log_individual(log_id_to_delete)
+                st.success(f"Registro con ID {log_id_to_delete} eliminado correctamente.")
+
+        if delete_option == "Eliminar por Rango de Fechas":
+            start_date = st.date_input("Fecha de Inicio")
+            end_date = st.date_input("Fecha de Fin")
+            if st.button("❌ Eliminar Logs en Rango de Fechas"):
+                eliminar_logs_por_fecha(start_date, end_date)
+                st.success(f"Registros entre {start_date} y {end_date} eliminados correctamente.")
+
     conn.close()
 
 
@@ -614,7 +654,7 @@ def assign_points_auto_ui():
     cursos = [
         ("ROB001", "ROB001"),
         ("VG001", "VG001"),
-        ("ClubNivelacion", "Club Nivelación"),
+        ("CLUB Nivelacion", "CLUB Nivelación"),
         ("Rescue", "Rescue")
     ]
     curso_selection = st.selectbox("Selecciona el Curso", cursos, format_func=lambda x: x[1])
@@ -638,19 +678,26 @@ def assign_points_auto_ui():
             df_asistencia, df_puntajes = getInfoRob(sesion_input)
         elif curso_selection[0].startswith("VG") and sesion_input <= 8:
             df_asistencia, df_puntajes = getInfoVg(sesion_input)
-        elif (curso_selection[0].startswith("Club") or curso_selection[0].startswith("Rescue")) and sesion_input <= 10:
+        elif (curso_selection[0].startswith("CLUB") or curso_selection[0].startswith("Rescue")  ) and sesion_input <= 10:
             df_asistencia = getInfoClubes(sesion_input)
+            if curso_selection[0].startswith("Rescue"):
+                df_asistencia = df_asistencia[df_asistencia["esRescue"] == 1]
+            else:
+                df_asistencia = df_asistencia[df_asistencia["esRescue"] == 0]
         else:
             st.error("Error: La sesión seleccionada no es válida para el curso seleccionado.")
             st.warning("Recuerda que la sesión máxima para ROB y VG es 8, y para Clubes y Rescue es 10.")
             return
 
+        # filtramos segun el club elegido
+        
         # Mostrar DataFrames antes de asignar
         if "Asignar Asistencia según Sheet" in acciones:
             st.subheader("📋 Asistencia detectada:")
             if df_asistencia is None:
                 st.error("No se encontraron datos de asistencia para la sesión seleccionada.")
-            else:   
+            else:
+   
                 st.dataframe(df_asistencia)
 
         if "Asignar Puntaje de Desafío según Sheet" in acciones:
@@ -662,15 +709,256 @@ def assign_points_auto_ui():
 
         if st.button("✅ Confirmar y Ejecutar Asignación"):
             if "Asignar Asistencia según Sheet" in acciones:
-                st.error("Aun no implementado.")
-                #asignar_asistencia(df_asistencia, mentor_selection[0], curso_selection[0], sesion_input)
+                #st.error("Aun no implementado.")
+                asignar_asistencia(df_asistencia, mentor_selection[0], curso_selection[0], sesion_input)
 
             if "Asignar Puntaje de Desafío según Sheet" in acciones:
-                st.error("Aun no implementado.")
-                #asignar_puntajes(df_puntajes, mentor_selection[0], curso_selection[0], sesion_input)
+                #st.error("Aun no implementado.")
+                asignar_puntajes(df_puntajes, mentor_selection[0], curso_selection[0], sesion_input)
 
             conn.commit()
             st.success("¡Asignación automática completada! 🎉")
 
     conn.close()
 
+def asignar_puntajes(df_puntajes, mentor_id, curso_id, sesion_numero):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # buscamos el id del curso
+    cursor.execute("""
+        SELECT course_id FROM courses WHERE course_name = %s
+    """, (curso_id,))
+    curso_id = cursor.fetchone()[0]
+
+
+    reason_id = 11  # Desafío Final
+
+    for idx, row in df_puntajes.iterrows():
+        nombre = row['Nombre']
+        apellido = row['Apellido']
+        puntos = row['Puntaje final']
+        # Normalizamos el puntaje a escala 0-10
+        puntos = math.ceil(puntos / 10)
+
+        # Buscar student_id
+        cursor.execute("""
+            SELECT student_id FROM students
+            WHERE first_name = %s AND last_name = %s AND current_course = %s
+        """, (nombre, apellido, curso_id))
+        student = cursor.fetchone()
+
+        if student:
+            student_id = student[0]
+
+            # Insertar en points_log
+            cursor.execute("""
+                INSERT INTO points_log (student_id, mentor_id, reason_id, points, auto)
+                VALUES (%s, %s, %s, %s, %s);
+            """, (student_id, mentor_id, reason_id, puntos, 1))
+
+            # Actualizar students_scores
+            cursor.execute("""
+                INSERT INTO students_scores (student_id, total_points)
+                VALUES (%s, %s)
+                ON CONFLICT (student_id) DO UPDATE
+                SET total_points = students_scores.total_points + EXCLUDED.total_points;
+            """, (student_id, puntos))
+
+            # Insertar logro (permite repeticiones)
+            cursor.execute("""
+                INSERT INTO student_achievements (student_id, reason_id)
+                VALUES (%s, %s);
+            """, (student_id, reason_id))
+
+    conn.commit()
+    conn.close()
+
+
+def asignar_asistencia(df_asistencia, mentor_id, curso_id, sesion_numero):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # filtramos el df para el club seleccionado
+
+    # buscamos el id del curso
+    cursor.execute("""
+        SELECT course_id FROM courses WHERE course_name = %s
+    """, (curso_id,))
+
+    if curso_id is None:
+        st.error("Error: Curso no encontrado.")
+        return
+   # print("curso_id: ", curso_id)
+    curso_id = cursor.fetchone()[0]
+
+    reason_id = 5  # Asistencia
+
+    for idx, row in df_asistencia.iterrows():
+        nombre = row['Nombre']
+        apellido = row['Apellido']
+        asistencia = int(row['Asistio'])
+
+        # Solo registramos si asistió (1)
+        if asistencia == 1:
+
+            # Buscar student_id
+            cursor.execute("""
+                SELECT student_id FROM students
+                WHERE first_name = %s AND last_name = %s AND current_course = %s
+            """, (nombre, apellido, curso_id))
+            student = cursor.fetchone()
+
+            if student:
+                student_id = student[0]
+
+                print("info previa al insert: ", student_id, mentor_id, reason_id)  
+                # Insertar en points_log (1 punto)
+                cursor.execute("""
+                    INSERT INTO points_log (student_id, mentor_id, reason_id, points, auto)
+                    VALUES (%s, %s, %s, %s, %s);
+                """, (student_id, mentor_id, reason_id, 1, 1))
+
+                # Actualizar students_scores
+                cursor.execute("""
+                    INSERT INTO students_scores (student_id, total_points)
+                    VALUES (%s, 1)
+                    ON CONFLICT (student_id) DO UPDATE
+                    SET total_points = students_scores.total_points + 1;
+                """, (student_id,))
+
+                # Insertar logro (permite repeticiones)
+                cursor.execute("""
+                    INSERT INTO student_achievements (student_id, reason_id)
+                    VALUES (%s, %s);
+                """, (student_id, reason_id))
+
+    conn.commit()
+    conn.close()
+
+
+def eliminar_log_individual(log_id):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # Buscar el registro antes de eliminar
+    cursor.execute("""
+        SELECT student_id, mentor_id, reason_id, points
+        FROM points_log
+        WHERE log_id = %s;
+    """, (log_id,))
+    registro = cursor.fetchone()
+
+    if registro:
+        student_id, mentor_id, reason_id, points = registro
+        print("student_id: ", student_id, "mentor_id: ", mentor_id, "reason_id: ", reason_id, "points: ", points)
+
+        # Guardar el registro eliminado
+        cursor.execute("""
+            INSERT INTO deleted_records (student_id, mentor_id, reason_id, points, deletion_type)
+            VALUES (%s, %s, %s, %s, 'individual');
+        """, (student_id, mentor_id, reason_id, points))
+
+        # Eliminar de student_achievements (solo si existe)
+        cursor.execute("""
+            DELETE FROM student_achievements
+            WHERE student_id = %s AND reason_id = %s;
+        """, (student_id, reason_id))
+
+        #vamos a extraer la categoría del motivo
+        cursor.execute("""
+            SELECT category FROM reasons
+            WHERE reason_id = %s;
+        """, (reason_id,))
+        category = cursor.fetchone()
+
+        category = category[0] if category else None
+        if category != 3: # si no es canjeo
+            # Restar los puntos en students_scores
+            cursor.execute("""
+                UPDATE students_scores
+                SET total_points = total_points - %s
+                WHERE student_id = %s;
+            """, (points, abs(student_id)))
+        else: # re asignamos los puntos al estudiante
+            cursor.execute("""
+                UPDATE students_scores
+                SET total_points = total_points + %s
+                WHERE student_id = %s;
+            """, (points, abs(student_id)))
+            
+
+        # Finalmente eliminar del log
+        cursor.execute("""
+            DELETE FROM points_log
+            WHERE log_id = %s;
+        """, (log_id,))
+
+        conn.commit()
+
+    conn.close()
+
+
+def eliminar_logs_por_fecha(start_date, end_date):
+    conn = connect_db()
+    cursor = conn.cursor()
+
+    # si es un rango
+    if start_date > end_date:
+        # Buscar registros en el rango
+        cursor.execute("""
+            SELECT log_id, student_id, mentor_id, reason_id, points
+            FROM points_log
+            WHERE date_time BETWEEN %s AND %s;
+        """, (start_date, end_date))
+        registros = cursor.fetchall()
+    elif start_date == end_date:
+        # Buscar registros en la fecha exacta
+        cursor.execute("""
+            SELECT log_id, student_id, mentor_id, reason_id, points
+            FROM points_log
+            WHERE DATE(date_time) = %s;
+        """, (start_date,))
+        registros = cursor.fetchall()
+    else:
+        st.error("Error: Rango de fechas inválido.")
+        return
+    #print("registros: ", registros)
+
+    for log_id, student_id, mentor_id, reason_id, points in registros:
+        # Guardar en deleted_records
+        cursor.execute("""
+            INSERT INTO deleted_records (student_id, mentor_id, reason_id, points, deletion_type)
+            VALUES (%s, %s, %s, %s, 'masiva_fecha');
+        """, (student_id, mentor_id, reason_id, points))
+
+        # Eliminar de student_achievements (opcional, solo si no quieres repetir logros)
+        cursor.execute("""
+            DELETE FROM student_achievements
+            WHERE student_id = %s AND reason_id = %s;
+        """, (student_id, reason_id))
+
+        category = category[0] if category else None
+        if category != 3: # si no es canjeo
+            # Restar los puntos en students_scores
+            cursor.execute("""
+                UPDATE students_scores
+                SET total_points = total_points - %s
+                WHERE student_id = %s;
+            """, (points, abs(student_id)))
+        else: # re asignamos los puntos al estudiante
+            cursor.execute("""
+                UPDATE students_scores
+                SET total_points = total_points + %s
+                WHERE student_id = %s;
+            """, (points, abs(student_id)))
+
+        # Borrar del log
+        cursor.execute("""
+            DELETE FROM points_log
+            WHERE log_id = %s;
+        """, (log_id,))
+
+
+    conn.commit()
+    conn.close()

@@ -11,7 +11,7 @@ def main():
     pages = ["Inicio", "Rankings"]
 
     if st.session_state["user_role"] == "Mentor":
-        pages += ["Asignación Manual", "Asignación Automática", "Estadísticas", "Admin"]
+        pages += ["Asignación Manual", "Asignación Automática", "Estadísticas Mentores", "Admin"]
     
 
     page = st.sidebar.radio("Selecciona una página:", pages)
@@ -37,7 +37,7 @@ def main():
         assign_points_auto_ui()
     elif page == "Rankings":
         show_rankings()
-    elif page == "Estadísticas":
+    elif page == "Estadísticas Mentores":
         mentor_stats_ui()
     elif page == "Admin":
         admin_ui()
