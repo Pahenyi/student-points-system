@@ -188,8 +188,7 @@ def homepage():
             <li>🏓 Ping pong en el break: 100 MP🪙</li>
             <li>⚽ Taka Taka en el break: 100 MP🪙</li>
             <li>🛋️ Break VIP (sillones de la Funda): 500 MP🪙</li>
-            <li>🤖 Un Robot Iroh: 1000 MP🪙</li>
-            <li>👑 ¡Ascenso a Mentor!: 10,000 MP🪙</li>
+            <li>👑 ¡Sé Mediador por un día!: 10,000 MP🪙</li>
             <li>🔜 Muchos más... (¡Muy pronto! 😉)</li>
         </ul>
         <p>¡Canjea tus MustaPoints con un Mentor por premios increíbles y vive una experiencia única! 🎉</p>
@@ -826,7 +825,7 @@ def admin_ui():
 
         st.subheader("🔎 Opciones de Eliminación")
 
-        delete_option = st.radio("¿Qué deseas hacer?", ["Eliminar por ID individual", "Eliminar por Rango de Fechas"])
+        delete_option = st.radio("¿Qué deseas hacer?", ["Eliminar por ID individual"])
 
         if delete_option == "Eliminar por ID individual":
             log_id_to_delete = st.number_input("Ingresa el ID del Log a Eliminar:", min_value=1, step=1)
@@ -1113,65 +1112,55 @@ def eliminar_logs_por_fecha(start_date, end_date):
     conn = connect_db()
     cursor = conn.cursor()
 
-    # si es un rango
-    if start_date > end_date:
-        # Buscar registros en el rango
+    cursor.execute("SET statement_timeout = 30000;")
+    st.info("Iniciando eliminación de registros por fecha. Esto puede tomar algunos segundos...")
+
+    # Paso 1: Borrar logs de student_achievements relacionados
+    while True:
         cursor.execute("""
-            SELECT log_id, student_id, mentor_id, reason_id, points
-            FROM points_log
-            WHERE date_time BETWEEN %s AND %s;
+            SELECT DISTINCT s.student_id
+            FROM students s
+            JOIN points_log pl ON pl.student_id = s.student_id
+            WHERE DATE(pl.date_time) BETWEEN %s AND %s
+            LIMIT 100;
         """, (start_date, end_date))
-        registros = cursor.fetchall()
-    elif start_date == end_date:
-        # Buscar registros en la fecha exacta
-        cursor.execute("""
-            SELECT log_id, student_id, mentor_id, reason_id, points
-            FROM points_log
-            WHERE DATE(date_time) = %s;
-        """, (start_date,))
-        registros = cursor.fetchall()
-    else:
-        st.error("Error: Rango de fechas inválido.")
-        return
-    #print("registros: ", registros)
+        student_ids = cursor.fetchall()
+        if not student_ids:
+            break
 
-    for log_id, student_id, mentor_id, reason_id, points in registros:
-        # Guardar en deleted_records
-        cursor.execute("""
-            INSERT INTO deleted_records (student_id, mentor_id, reason_id, points, deletion_type)
-            VALUES (%s, %s, %s, %s, 'masiva_fecha');
-        """, (student_id, mentor_id, reason_id, points))
-
-        # Eliminar de student_achievements (opcional, solo si no quieres repetir logros)
-        cursor.execute("""
-            DELETE FROM student_achievements
-            WHERE student_id = %s AND reason_id = %s;
-        """, (student_id, reason_id))
-
-        category = category[0] if category else None
-        if category != 3: # si no es canjeo
-            # Restar los puntos en students_scores
+        for sid in student_ids:
             cursor.execute("""
-                UPDATE students_scores
-                SET total_points = total_points - %s
+                DELETE FROM student_achievements
                 WHERE student_id = %s;
-            """, (points, abs(student_id)))
-        else: # re asignamos los puntos al estudiante
-            cursor.execute("""
-                UPDATE students_scores
-                SET total_points = total_points + %s
-                WHERE student_id = %s;
-            """, (points, abs(student_id)))
+            """, (sid[0],))
+        conn.commit()
 
-        # Borrar del log
+    # Paso 2: Borrar directamente de points_log (bloques)
+    while True:
         cursor.execute("""
             DELETE FROM points_log
-            WHERE log_id = %s;
-        """, (log_id,))
+            WHERE DATE(date_time) BETWEEN %s AND %s
+            LIMIT 100
+            RETURNING *;
+        """, (start_date, end_date))
+        deleted = cursor.fetchall()
+        if not deleted:
+            break
+        conn.commit()
 
-
+    # Paso 3: Recalcular scores (esto puede tardar, pero es necesario)
+    cursor.execute("""
+        UPDATE students_scores SET total_points = COALESCE((
+            SELECT SUM(points)
+            FROM points_log
+            WHERE points_log.student_id = students_scores.student_id
+        ), 0);
+    """)
     conn.commit()
+
+    st.success("¡Registros eliminados correctamente por fecha!")
     conn.close()
+
 
 
 def nnj_statistics_ui():
