@@ -270,7 +270,7 @@ def assign_points_ui():
             1: "Premios",
             2: "Penalizaciones",
             3: "Canjeos",
-            #4: "Bonos"  # <- ACTIVAMOS BONOS
+            #4: "Bonos"  # <- CTIVAMOS BONOS
         }
 
         for category, title in categories.items():
