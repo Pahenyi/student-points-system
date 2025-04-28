@@ -282,8 +282,8 @@ def assign_points_ui():
         # Si se seleccionó el Desafío Final (id=11), pedir puntaje manual
         if st.session_state.get("selected_reason") and st.session_state["selected_reason"][0] == 11:
             manual_point_value = st.number_input(
-                "Ingresa el puntaje obtenido en el Desafío Final (0 a 10):",
-                min_value=0, max_value=10, step=1
+                "Ingresa el puntaje obtenido en el Desafío (0 a 20):",
+                min_value=0, max_value=20, step=1
             )
 
     # Paso 5: Confirmar y Enviar
