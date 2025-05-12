@@ -434,7 +434,7 @@ def mentor_stats_ui():
 
 
 # Mostrar rankings
-def show_rankings(limit=14):
+def show_rankings(limit=15):
     st.markdown("""
     <div style="background-color:#E3F2FD; padding:20px; border-radius:10px; text-align:center; margin-bottom:20px;">
         <h2 style="color:#0D47A1;">Consulta el ranking de los mejores estudiantes 🏅</h2>
